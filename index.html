@@ -1,0 +1,209 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta name="generator" content="PSPad editor, www.pspad.com">
+  <title></title>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.css" />  
+	<link rel="stylesheet" href="styl_leaflet.css" />   
+  <script src="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.js"></script>
+	<script>
+/*
+ * L.SingleTile uses L.ImageOverlay to display a single-tile WMS layer.
+ * url parameter must accept WMS-style width, height and bbox.
+ */
+
+L.SingleTile = L.ImageOverlay.extend({
+	defaultWmsParams: {
+		service: 'WMS',
+		request: 'GetMap',
+		version: '1.1.1',
+		styles: '',
+		srs: "EPSG:4326",
+    layers: 'rubbish:papier_3857',
+    format: 'image/png',
+		transparent: true
+	},
+
+	initialize: function( url, options ) {
+		this.wmsParams = L.extend({}, this.defaultWmsParams);
+
+		this.wmsParams = L.extend(this.wmsParams, options);
+		L.ImageOverlay.prototype.initialize.call(this, url, null, options);
+	},
+
+	setParams: function (params) {
+		L.extend(this.wmsParams, params);
+		return this;
+	},
+
+	redraw: function () {
+		this._updateImageUrl();
+	},
+
+	onAdd: function (map) {
+		var projectionKey = parseFloat(this.wmsParams.version) >= 1.3 ? 'crs' : 'srs';
+		this.wmsParams[projectionKey] = 'EPSG:4326'; // this is incorrect!
+		//this.wmsParams[projectionKey] = map.options.crs.code;
+		L.ImageOverlay.prototype.onAdd.call(this, map);
+		map.on('moveend', this._updateImageUrl, this);
+	},
+
+	onRemove: function (map) {
+		map.on('moveend', this._updateImageUrl, this);
+		L.ImageOverlay.prototype.onRemove.call(this, map);
+	},
+
+	// Copypasted from L.ImageOverlay (dirty hack)
+	_initImage: function () {
+		this._image = L.DomUtil.create('img', 'leaflet-image-layer');
+
+		if (this._map.options.zoomAnimation && L.Browser.any3d) {
+			L.DomUtil.addClass(this._image, 'leaflet-zoom-animated');
+		} else {
+			L.DomUtil.addClass(this._image, 'leaflet-zoom-hide');
+		}
+
+		this._updateOpacity();
+		this._bounds = this._map.getBounds();
+
+		//TODO createImage util method to remove duplication
+		L.extend(this._image, {
+			galleryimg: 'no',
+			onselectstart: L.Util.falseFn,
+			onmousemove: L.Util.falseFn,
+			onload: L.bind(this._onImageLoad, this),
+			src: this._constructUrl()
+		});
+	},
+
+	_onImageLoad: function () {
+		this._bounds = this._map.getBounds();
+		this._reset();
+		this.fire('load');
+	},
+
+	_updateImageUrl: function () {
+		this._image.src = this._constructUrl();
+	},
+
+	_constructUrl: function () {
+		var size = this._map.getSize();
+		var b = this._map.getBounds();
+		return this._url + L.Util.getParamString(this.wmsParams, this._url) + "&width=" + size.x + "&height=" + size.y + "&bbox=" + b.toBBoxString();
+	}
+});
+
+L.singleTile = function (url, options) {
+	return new L.SingleTile(url, options);
+};
+
+  </script>
+	
+  </head>
+  <body style="height: 95%">
+	<div id="mapid" style="width: 100%; height: 100%"></div>
+
+	
+	<script>
+  
+	// set up the map
+	map = new L.Map('mapid');
+
+	// create the tile layer with correct attribution
+	var osmUrl='http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+	var osmAttrib='Map data © <a href="http://openstreetmap.org">OpenStreetMap</a> contributors';
+	var osm = new L.TileLayer(osmUrl, {minZoom: 3, maxZoom: 18, attribution: osmAttrib});		
+	// start the map in South-East England
+	map.setView(new L.LatLng(49.20, 16.65	),12);
+
+
+	var ortofoto = L.tileLayer.wms("http://geoportal.cuzk.cz/WMS_ORTOFOTO_PUB/WMService.aspx", {
+    layers: 'GR_ORTFOTORGB',
+    format: 'image/png',
+    transparent: true,
+    attribution: "Ortofoto ČÚZK"
+});
+	
+
+var odpad_papir = L.singleTile("http://geoserver2-pidibi.cloudapp.net:8080/geoserver/rubbish/wms", {
+    layers: 'rubbish:papier_vah',
+    format: 'image/png',
+		transparent: true,
+    attribution: "Kontajnery na papír"
+		});
+
+var odpad_plast = L.singleTile("http://geoserver2-pidibi.cloudapp.net:8080/geoserver/rubbish/wms", {
+    layers: 'rubbish:plast_vah',
+    format: 'image/png',
+		transparent: true,
+    attribution: "Kontajnery na plasty"
+		});
+
+var odpad_sklo = L.singleTile("http://geoserver2-pidibi.cloudapp.net:8080/geoserver/rubbish/wms", {
+    layers: 'rubbish:sklo_vah',
+    format: 'image/png',
+		transparent: true,
+    attribution: "Kontajnery na sklo"
+		});
+
+
+var odpad_papir_body = L.tileLayer.wms("http://geoserver2-pidibi.cloudapp.net:8080/geoserver/rubbish/wms", {
+    layers: 'rubbish:papier_body',
+    format: 'image/png',
+		transparent: true,
+    attribution: "Kontajnery na papír (body)"
+		});
+		
+var odpad_plast_body = L.tileLayer.wms("http://geoserver2-pidibi.cloudapp.net:8080/geoserver/rubbish/wms", {
+    layers: 'rubbish:plast_body',
+    format: 'image/png',
+		transparent: true,
+    attribution: "Kontajnery na plasty (body)"
+		});
+		
+var odpad_sklo_body = L.tileLayer.wms("http://geoserver2-pidibi.cloudapp.net:8080/geoserver/rubbish/wms", {
+    layers: 'rubbish:sklo_body',
+    format: 'image/png',
+		transparent: true,
+    attribution: "Kontajnery na sklo (body)"  
+		});
+	
+	
+var baseMaps = {
+		"OSM": osm,		
+		"Ortofoto": ortofoto		
+		};
+
+var overlayMaps = {
+    "Kontajnery - papír": odpad_papir,
+		"Kontajnery - papír (body)": odpad_papir_body,
+    "Kontajnery - plast": odpad_plast,
+    "Kontajnery - plast (body)": odpad_plast_body,
+    "Kontajnery - sklo": odpad_sklo,
+    "Kontajnery - sklo (body)": odpad_sklo_body
+		};
+
+	L.control.layers(baseMaps, overlayMaps, {collapsed: false}).addTo(map);
+	
+	
+	map.addLayer(osm);
+	//map.addLayer(odpad_papir);
+	//map.addLayer(odpad_plast);
+	//map.addLayer(odpad_papir_body);
+
+  map.replaceLayer(odpad_papir, odpad_papir_body);
+
+ </script>  
+ 
+
+<div id="nadpis">
+	<h1>Tříděný odpad</h1>
+</div>
+
+
+
+
+</body>
+</html>
